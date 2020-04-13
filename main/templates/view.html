@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="img-picker">
+        <h2 class="title">Insert a Video below</h2>
+        <button class="wrong"> <- </button> 
+        <div class="img-holder">
+            <div id="draw-on" style="font-size: xx-large; position: absolute; color: red; -webkit-text-stroke: seashell;">X</div>
+
+            <video width="800" height="480" src="{{url}}" muted='ture' id="video"></video>
+        </div>
+        <button class="right"> -> </button> 
+    </div>
+    <script>       
+        var video = $('#video')[0];
+        var grit = '{{ grit }}'; 
+
+        var frames = [];
+        var loc = [];
+        var cor_inc = [];
+        var currFrame = 0;
+        
+        const convertTime = (time) => {
+            time *= .1
+            return time
+        };
+        const convertXY = (arr_x_y) => {
+            var return_arr = []
+            return_arr.push(arr_x_y[0] * (.95));
+            return_arr.push(arr_x_y[1] * (1.2));
+            return return_arr
+        }
+
+        const readData = (data) => {
+            console.log(data)
+            var res = data
+            // var res = JSON.parse(data);
+            for (const key in res) {
+                frames.push(convertTime(res[key]['time']));
+                loc.push(convertXY([res[key]['x'], res[key]['y']]));
+            }
+
+            frameMaker()
+        };
+
+        const frameMaker = () => {
+            var video = document.getElementById('video');
+
+            video.currentTime = frames[currFrame];
+            console.log(frames[currFrame])
+            
+            $('#draw-on').css({ left: loc[currFrame][0] });
+            $('#draw-on').css({ top: loc[currFrame][1] });
+        };
+
+        const calculateTimeAt = () => {
+            var p_time = 0;
+            var w_time = 0;
+
+            for(var i = 0; i < frames.length; i++) {
+                if (cor_inc[i] == 1) {
+                    if(loc[i][1] <= 370) {
+                        p_time += 5
+                    } else if  (loc[i][1] > 370) {
+                        w_time += 5
+                    }
+                }
+            }
+            
+            return [p_time, w_time]
+        } 
+
+        const finish_Page = () => {
+            var times = calculateTimeAt();
+            var w_time = calculateTimeAt('words');
+
+            $('.img-picker').replaceWith(`
+            
+                <div class="final-data">
+
+                    <h2> Time looking at picture: ${times[0]} seconds</h2>
+                    <br/><br/>
+                    <h2> Time looking at words: ${times[1]}  seconds</h2>
+                    <br/><br/>
+                    <h2> Time looking at neither: ${document.getElementById('video').duration - times[0] - times[1]} seconds</h2>
+                    <br/><br/>
+
+                </div>
+            
+            `);
+        }
+
+        
+        const wrongClick = (event) => {
+            cor_inc.push(0);
+            
+            currFrame += 1;
+
+            if (currFrame >= frames.length) {
+                finish_Page()
+            } else {
+                frameMaker(currFrame);
+            }
+        }
+
+
+        const rightClick = (event) => {
+            cor_inc.push(1);
+
+            currFrame += 1;
+
+            if (currFrame >= frames.length) {
+                finish_Page()
+            } else {
+                frameMaker(currFrame);
+            }
+        }
+
+
+        $(document).on('click', '.right', rightClick);
+        $(document).on('click', '.wrong', wrongClick);
+
+        {% autoescape off %}
+        var data = {{ info }};
+        {% endautoescape %}
+
+        readData(data);
+    </script>
+{% endblock %}
