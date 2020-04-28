@@ -27,8 +27,17 @@ import simplejson as json
 
 class Tracker :
     def __init__(self, given_path, grit = 10) :
-        self.given_path = 'F:\django-eye-tracker\mysite\media\%s' % (given_path)
+        self.fs_video = FileSystemStorage()
+        self.fs_frame = FileSystemStorage(location='/media/frames')
+        self.given_path = str(self.fs_video.open(given_path))
+        self.previous_name = 'media/frames/previous_frame.jpg'
+        self.current_name = 'media/frames\current_frame.jpg'
+        self.target_name = 'media/frames/target_frame.jpg'
+        self.next_name = 'media/frames/next_frame.jpg'
         self.grit = grit
+        self.path2 = '/media/tests'
+        self.mask_name = 'media/frames\mask.jpg'
+
 
     #finds 'gradient' of change between pictures. This is represented as an array where areas without changes are black
     #and areas with change are colored
@@ -435,15 +444,15 @@ class Tracker :
                 cv2.destroyAllWindows
                 break
             elif current_frame == target_frame - buffer:
-                name = 'previous_frame.jpg'
+                name = self.previous_name
                 cv2.imwrite(name, frame)
                 image1_name = name
             elif current_frame == target_frame:
-                name = 'target_frame.jpg'
+                name = self.target_name
                 cv2.imwrite(name, frame)
                 image2_name = name
             elif current_frame == target_frame + buffer:
-                name = 'next_frame.jpg'
+                name = self.next_name
                 cv2.imwrite(name, frame)
                 image3_name = name
             
@@ -494,7 +503,7 @@ class Tracker :
         output_image = Image.new("RGB", input_image.size)
         draw = ImageDraw.Draw(output_image)
         
-        anchor_image = cv2.imread('previous_frame.jpg')
+        anchor_image = cv2.imread(self.previous_name)
         cv2_image = self.convert_PIL_to_cv2(input_image)
 
         gray1 = cv2.cvtColor(anchor_image, cv2.COLOR_BGR2GRAY)
@@ -539,8 +548,6 @@ class Tracker :
 
     #the path to the videos
     #path2 = r'C:\Users\ccui9\Testfolder'
-    fs = FileSystemStorage()
-    path2 = '/media/tests'
 
     #code by Professor Bishop
     def readFrames(self, vid):
@@ -600,9 +607,9 @@ class Tracker :
             if ret == False:
                 break
             elif current_frame == 0:
-                name = 'previous_frame.jpg'
+                name = self.previous_name
                 cv2.imwrite(name, frame)
-                PIL_image = Image.open('previous_frame.jpg')
+                PIL_image = Image.open(self.previous_name)
                 crop = PIL_image.crop((x,y , x + w, y +h))
                 crop = self.convert_PIL_to_cv2(crop)
                 cv2.imwrite(name, crop)
@@ -610,12 +617,12 @@ class Tracker :
                 diffs = np.zeros_like(np.array(frame))
                 np_prev = np.array(frame).astype(float)
             elif counter == self.grit:
-                name = 'current_frame.jpg'
+                name = self.current_name
                 cv2.imwrite(name, frame)
-                im1 = Image.open('current_frame.jpg')
+                im1 = Image.open(self.current_name)
                 crop = im1.crop((x,y , x + w, y +h))
                 crop = self.convert_PIL_to_cv2(crop)
-                anchor = Image.open('previous_frame.jpg')
+                anchor = Image.open(self.previous_name)
                 anchor = self.convert_PIL_to_cv2(anchor)
                 gray1 = cv2.cvtColor(anchor, cv2.COLOR_BGR2GRAY)
                 gray2 = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
@@ -632,7 +639,7 @@ class Tracker :
                     cv2.imwrite(os.path.join(self.path2, 'diffframe' + str(current_frame) + '.jpg'), img_cv)
                     name = 'frame' + str(current_frame) + '.jpg'
                     cv2.imwrite(os.path.join(self.path2, 'frame' + str(current_frame) + '.jpg'), frame)
-                    cv2.imwrite('previous_frame.jpg', crop)
+                    cv2.imwrite(self.previous_name, crop)
                     diffs = np.zeros_like(np.array(frame))
                     np_prev = np.array(frame).astype(float)
                 counter = 0
@@ -662,7 +669,6 @@ class Tracker :
         print ('EXCEPTION IN ({}, LINE {} "{}"):{}'.format(filename, lineno, line.strip(), exc_obj))
 
     def get_points(self, video_name, time_scaled, page_frames_adj):
-        print("hihi")
         start = time.time()
         cam = cv2.VideoCapture(video_name)
         fr = cam.get(cv2.CAP_PROP_FPS)
@@ -682,28 +688,28 @@ class Tracker :
             if ret == False:
                 break
             elif current_frame == 0:
-                name = 'previous_frame.jpg'
+                name = self.previous_name
                 cv2.imwrite(name, frame)
                 current_anchor = name
             elif current_frame != 0:
-                c_anchor = cv2.imread('previous_frame.jpg')
+                c_anchor = cv2.imread(self.previous_name)
                 gray1 = cv2.cvtColor(c_anchor, cv2.COLOR_BGR2GRAY)
                 gray2 = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
                 (score, diff) = compare_ssim(gray1, gray2, full = True)
                 diff = (diff * 255).astype("uint8")
                 if counter == self.grit:
                     print(current_frame)
-                    name = 'target_frame.jpg'
+                    name = self.target_name
                     cv2.imwrite(name, frame)
-                    im2 = Image.open('target_frame.jpg')
+                    im2 = Image.open(self.target_name)
                     np_im2 = np.array(im2)
                     hsv = cv2.cvtColor(np_im2, cv2.COLOR_BGR2HSV)
                     lower_blue = np.array([50, 50, 50])
                     upper_blue = np.array([255, 255, 255])
                     mask = cv2.inRange(hsv, lower_blue, upper_blue)
-                    name = 'mask.jpg'
+                    name = self.mask_name
                     cv2.imwrite(name, mask)
-                    mask = Image.open('mask.jpg')
+                    mask = Image.open(self.mask_name)
                     circle_array, others_array, not_circles_array, not_others_array = self.find_circles(6, 25, 200, 0.5, im2, mask, 120, 10,30)
                     try:
                         circle_array = self.flatten_array(circle_array)
@@ -747,7 +753,7 @@ class Tracker :
                         print(not_others_array)
                             
                         pass
-                    name = 'previous_frame.jpg'
+                    name = self.previous_name
                     cv2.imwrite(name, frame)
                     current_anchor = name
                     counter = 0
